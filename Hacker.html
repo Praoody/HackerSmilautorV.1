@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Hacker Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+
+        body {
+            background-color: #000;
+            color: #0f0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background-color: #001100;
+            border: 1px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .main-terminal {
+            background-color: #001100;
+            border: 1px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-panel {
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            margin: 10px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #003300;
+            border: 1px solid #0f0;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #0f0;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .terminal {
+            flex: 1;
+            background-color: #000;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 14px;
+            border: 1px solid #0f0;
+        }
+
+        .terminal-line {
+            margin: 2px 0;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .warning { color: #ff0; }
+        .info { color: #0ff; }
+
+        button {
+            background-color: #003300;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background-color: #0f0;
+            color: #000;
+        }
+
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 20px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #001100;
+            border: 1px solid #0f0;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                HACK3R_CONSOL3 v2.0
+            </div>
+            <div class="status-panel">
+                <div class="status-item">
+                    CPU Usage
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="cpuBar"></div>
+                    </div>
+                </div>
+                <div class="status-item">
+                    Memory Usage
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="memoryBar"></div>
+                    </div>
+                </div>
+                <div class="status-item">
+                    Network Traffic
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="networkBar"></div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="initializeHack()">Initialize Breach</button>
+            <button onclick="startPortScan()">Port Scan</button>
+            <button onclick="crackPassword()">Password Cracker</button>
+            <button onclick="deployPayload()">Deploy Payload</button>
+            <button onclick="showMatrix()">Matrix Mode</button>
+        </div>
+        <div class="main-terminal">
+            <div class="terminal" id="terminal"></div>
+        </div>
+    </div>
+    <canvas class="matrix-bg" id="matrixCanvas"></canvas>
+    <div class="overlay" id="overlay"></div>
+    <div class="modal" id="modal">
+        <div id="modalContent"></div>
+    </div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const cpuBar = document.getElementById('cpuBar');
+        const memoryBar = document.getElementById('memoryBar');
+        const networkBar = document.getElementById('networkBar');
+        
+        // Realistic looking commands and messages
+        const commands = [
+            'nmap -sS -sV --script vuln',
+            'hydra -l admin -P rockyou.txt ssh://target',
+            'sqlmap --url="http://target" --dbs --batch',
+            'dirb http://target -r -w',
+            './exploit.py -t target -p 443 --force',
+            'python3 ransomware.py --encrypt',
+            './bruteforce.sh -t target -w wordlist.txt',
+            'msfconsole -x "use exploit/multi/handler"'
+        ];
+
+        const systemMessages = [
+            'Bypassing firewall...',
+            'Intercepting network traffic...',
+            'Cracking encryption key...',
+            'Analyzing system vulnerabilities...',
+            'Establishing secure connection...',
+            'Injecting payload...',
+            'Escalating privileges...',
+            'Bypassing authentication...'
+        ];
+
+        function writeToTerminal(text, type = 'success') {
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function simulateProgress(duration = 2000, steps = 20) {
+            const increment = 100 / steps;
+            for (let i = 0; i <= steps; i++) {
+                cpuBar.style.width = `${i * increment}%`;
+                memoryBar.style.width = `${Math.random() * 100}%`;
+                networkBar.style.width = `${Math.random() * 100}%`;
+                await sleep(duration / steps);
+            }
+        }
+
+        async function initializeHack() {
+            writeToTerminal('Initializing system breach...', 'warning');
+            const ip = Array(4).fill(0).map(() => Math.floor(Math.random() * 256)).join('.');
+            writeToTerminal(`Target acquired: ${ip}`, 'info');
+            
+            for (let i = 0; i < 5; i++) {
+                writeToTerminal(systemMessages[Math.floor(Math.random() * systemMessages.length)]);
+                writeToTerminal(`$ ${commands[Math.floor(Math.random() * commands.length)]}`, 'info');
+                await simulateProgress(1000);
+            }
+            
+            writeToTerminal('ROOT ACCESS GRANTED', 'success');
+        }
+
+        async function startPortScan() {
+            writeToTerminal('Initiating port scan...', 'warning');
+            for (let port = 20; port <= 80; port += 20) {
+                writeToTerminal(`Scanning port ${port}...`, 'info');
+                await sleep(300);
+                if (Math.random() > 0.5) {
+                    writeToTerminal(`Port ${port}: OPEN`, 'success');
+                }
+            }
+            writeToTerminal('Port scan complete', 'success');
+        }
+
+        async function crackPassword() {
+            writeToTerminal('Initializing password cracker...', 'warning');
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let password = '';
+            
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < chars.length; j++) {
+                    password = password.padEnd(8, '*');
+                    writeToTerminal(`Trying: ${password}`, 'info');
+                    await sleep(50);
+                    if (Math.random() > 0.95) {
+                        password = password.slice(0, i) + chars[j];
+                        break;
+                    }
+                }
+            }
+            writeToTerminal(`Password cracked: ${password}`, 'success');
+        }
+
+        async function deployPayload() {
+            writeToTerminal('Preparing payload deployment...', 'warning');
+            for (let i = 0; i < 3; i++) {
+                writeToTerminal(systemMessages[Math.floor(Math.random() * systemMessages.length)]);
+                await simulateProgress(800);
+            }
+            writeToTerminal('Payload deployed successfully', 'success');
+        }
+
+        // Matrix rain effect
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d');
+        let matrixInterval;
+
+        function initMatrix() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const chars = '01';
+            const fontSize = 14;
+            const columns = canvas.width / fontSize;
+            const drops = Array(Math.floor(columns)).fill(1);
+
+            function drawMatrix() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#0F0';
+                ctx.font = `${fontSize}px monospace`;
+                
+                for (let i = 0; i < drops.length; i++) {
+                    const char = chars[Math.floor(Math.random() * chars.length)];
+                    ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+                    
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+            }
+
+            matrixInterval = setInterval(drawMatrix, 50);
+        }
+
+        function showMatrix() {
+            initMatrix();
+            writeToTerminal('Matrix mode activated', 'success');
+        }
+
+        // Initialize
+        initMatrix();
+        
+        // Random system status updates
+        setInterval(() => {
+            cpuBar.style.width = `${Math.random() * 100}%`;
+            memoryBar.style.width = `${Math.random() * 100}%`;
+            networkBar.style.width = `${Math.random() * 100}%`;
+        }, 2000);
+    </script>
+</body>
+</html>
